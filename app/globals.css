@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #03050f;
+  --bg-card: #080d1a;
+  --bg-card-hover: #0d1428;
+  --border-glow: rgba(0, 212, 255, 0.2);
+  --border-glow-strong: rgba(0, 212, 255, 0.5);
+  --cyan: #00d4ff;
+  --cyan-dim: rgba(0, 212, 255, 0.7);
+  --blue: #0066ff;
+  --purple: #8b5cf6;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --red: #ef4444;
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: #e2e8f0;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg-primary);
+  color: #e2e8f0;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0f1e;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.6);
+}
+
+/* Glow utilities */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.15), 0 0 60px rgba(0, 212, 255, 0.05);
+}
+.glow-cyan-strong {
+  box-shadow: 0 0 30px rgba(0, 212, 255, 0.3), 0 0 80px rgba(0, 212, 255, 0.1);
+}
+.glow-text-cyan {
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+.glow-blue {
+  box-shadow: 0 0 20px rgba(0, 102, 255, 0.2), 0 0 60px rgba(0, 102, 255, 0.08);
+}
+
+/* Glass card */
+.glass-card {
+  background: linear-gradient(135deg, rgba(8, 13, 26, 0.9) 0%, rgba(13, 20, 40, 0.8) 100%);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  backdrop-filter: blur(12px);
+}
+.glass-card:hover {
+  border-color: rgba(0, 212, 255, 0.35);
+  background: linear-gradient(135deg, rgba(8, 13, 26, 0.95) 0%, rgba(13, 20, 40, 0.9) 100%);
+}
+
+/* Grid background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #00d4ff 0%, #0066ff 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-alt {
+  background: linear-gradient(135deg, #ffffff 0%, #00d4ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Button */
+.btn-primary {
+  background: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #0077ff 0%, #00e5ff 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.btn-primary:hover::before {
+  opacity: 1;
+}
+.btn-primary:hover {
+  box-shadow: 0 0 30px rgba(0, 212, 255, 0.4), 0 0 60px rgba(0, 102, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Input */
+.input-dark {
+  background: rgba(3, 5, 15, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  color: #e2e8f0;
+  transition: all 0.3s ease;
+}
+.input-dark:focus {
+  outline: none;
+  border-color: rgba(0, 212, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1), 0 0 20px rgba(0, 212, 255, 0.1);
+}
+.input-dark::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+/* Score ring animation */
+@keyframes scoreReveal {
+  from { stroke-dashoffset: 283; }
+  to { stroke-dashoffset: var(--target-offset); }
+}
+
+/* Scan line animation */
+@keyframes scanLine {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* Pulse dot */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Blink cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+.float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Orbit animation for decorative elements */
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(40px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(40px) rotate(-360deg); }
+}
