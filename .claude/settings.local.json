@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"process.env\\\\|NEXT_PUBLIC\" /home/afridi/visapro-ai/visapro-ai/lib/*.ts /home/afridi/visapro-ai/visapro-ai/app/api/*/*route.ts)",
+      "Bash(wc -l /home/afridi/visapro-ai/visapro-ai/lib/*.ts /home/afridi/visapro-ai/visapro-ai/components/*.tsx)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next *)"
+    ]
+  }
+}
