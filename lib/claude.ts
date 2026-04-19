@@ -117,6 +117,88 @@ Respond with only JSON: {"question": "...", "context": "..."}`;
   }
 }
 
+export async function enrichWithHybridContext(
+  profile: { name: string; education: string; experience: string; skills: string },
+  features: {
+    awards_count: number;
+    awards_tier: string;
+    media_presence: boolean;
+    judging_experience: boolean;
+    original_contributions: boolean;
+    authorship: boolean;
+    leading_role: boolean;
+    high_salary: boolean;
+    memberships: boolean;
+    exhibitions: boolean;
+  },
+  ragContext: string,
+  mlScore: number,
+  criteriaMet: string[],
+  missingCriteria: string[]
+): Promise<{
+  explanation: string;
+  improvement_suggestions: string[];
+  confidence_level: "low" | "medium" | "high";
+} | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  // Hard cap on each section to keep prompt size bounded
+  const MAX_CONTEXT_CHARS = 1800;
+  const MAX_PROFILE_CHARS = 500;
+
+  const safeRagContext = ragContext.slice(0, MAX_CONTEXT_CHARS);
+  const ragSection = safeRagContext
+    ? `\n\nRELEVANT EB1A LEGAL CONTEXT (retrieved from knowledge base):\n${safeRagContext}\n\nUse the above retrieved information to ground your reasoning. Do not hallucinate beyond this.`
+    : "";
+
+  const prompt = `You are an experienced US immigration attorney specializing in EB-1A extraordinary ability visa petitions.
+${ragSection}
+
+CLIENT PROFILE:
+Education: ${profile.education.slice(0, MAX_PROFILE_CHARS)}
+
+Experience: ${profile.experience.slice(0, MAX_PROFILE_CHARS)}
+
+Skills: ${profile.skills.slice(0, MAX_PROFILE_CHARS)}
+
+ML MODEL OUTPUT:
+- Predicted approval score: ${mlScore}/100
+- Criteria satisfied (${criteriaMet.length} of 10): ${criteriaMet.join("; ") || "None detected"}
+- Missing criteria: ${missingCriteria.join("; ") || "None"}
+
+Based on the retrieved legal context, the client's profile, and the ML model output, provide a JSON response with:
+1. "explanation": 3-5 sentences grounded in the retrieved EB1A criteria descriptions and the specific evidence in this profile. Reference CFR sections where relevant.
+2. "improvement_suggestions": array of 4-6 specific, actionable steps (each 2-3 sentences) the applicant should take to address missing criteria, grounded in the retrieved legal context.
+3. "confidence_level": "low" if score < 40, "medium" if 40-64, "high" if >= 65.
+
+Respond with only valid JSON: {"explanation": "...", "improvement_suggestions": [...], "confidence_level": "low|medium|high"}`;
+
+  try {
+    const msg = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (
+      typeof parsed.explanation === "string" &&
+      Array.isArray(parsed.improvement_suggestions) &&
+      ["low", "medium", "high"].includes(parsed.confidence_level)
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function evaluateInterviewAnswer(
   question: string,
   answer: string,

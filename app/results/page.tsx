@@ -7,11 +7,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { EvaluationResult, RoadmapItem, RFEPrediction, ApprovalSimulation } from "@/lib/ai";
 import Navbar from "@/components/Navbar";
 
+interface HybridAnalysis {
+  final_score: number;
+  confidence_level: "low" | "medium" | "high";
+  criteria_met: string[];
+  missing_criteria: string[];
+  explanation: string;
+  improvement_suggestions: string[];
+  ml_score: number;
+  rules_applied: string[];
+  retrieved_sources: { id: string; title: string; cfr_reference?: string }[];
+}
+
 interface StoredResult extends EvaluationResult {
   applicantName: string;
   roadmap?: RoadmapItem[];
   rfe_predictions?: RFEPrediction[];
   approval_simulation?: ApprovalSimulation;
+  hybrid_analysis?: HybridAnalysis;
 }
 
 // ─── Score Ring ───────────────────────────────────────────────────────────────
@@ -316,10 +329,17 @@ export default function ResultsPage() {
 
   const {
     overall_score, sections, visa_probabilities, strengths, gaps, suggestions,
-    applicantName, rfe_predictions, approval_simulation,
+    applicantName, rfe_predictions, approval_simulation, hybrid_analysis,
   } = result;
-  const scoreColor = overall_score >= 75 ? "#10b981" : overall_score >= 55 ? "#00d4ff" : overall_score >= 35 ? "#f59e0b" : "#ef4444";
-  const scoreLabel = overall_score >= 75 ? "Strong Candidate" : overall_score >= 55 ? "Moderate Candidate" : overall_score >= 35 ? "Developing Profile" : "Needs Significant Work";
+
+  const displayScore = hybrid_analysis?.final_score ?? overall_score;
+  const displaySuggestions = hybrid_analysis?.improvement_suggestions?.length
+    ? hybrid_analysis.improvement_suggestions
+    : suggestions;
+  const confidenceLevel = hybrid_analysis?.confidence_level;
+
+  const scoreColor = displayScore >= 75 ? "#10b981" : displayScore >= 55 ? "#00d4ff" : displayScore >= 35 ? "#f59e0b" : "#ef4444";
+  const scoreLabel = displayScore >= 75 ? "Strong Candidate" : displayScore >= 55 ? "Moderate Candidate" : displayScore >= 35 ? "Developing Profile" : "Needs Significant Work";
 
   const card: React.CSSProperties = { borderRadius: 16, border: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#0d1017", padding: "24px" };
   const sectionColor = (s: number) => s >= 75 ? "#10b981" : s >= 55 ? "#00d4ff" : s >= 35 ? "#f59e0b" : "#ef4444";
@@ -372,16 +392,36 @@ export default function ResultsPage() {
         >
           <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${scoreColor}0d 0%, transparent 65%)`, pointerEvents: "none" }} />
           <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 32, flexWrap: "wrap", position: "relative", zIndex: 1 }}>
-            <ScoreRing score={overall_score} size={140} />
+            <ScoreRing score={displayScore} size={140} />
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 11, color: "rgba(148,163,184,0.6)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Overall Visa Readiness</div>
-              <div style={{ fontSize: 42, fontWeight: 800, color: "#ffffff", lineHeight: 1, marginBottom: 4 }}>
-                {overall_score}<span style={{ fontSize: 20, color: "#475569", fontWeight: 400 }}>/100</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: "rgba(148,163,184,0.6)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Overall Visa Readiness</div>
+                {hybrid_analysis && (
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#a78bfa", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 4, padding: "2px 6px", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    ML + RAG
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: scoreColor, marginBottom: 14 }}>{scoreLabel}</div>
+              <div style={{ fontSize: 42, fontWeight: 800, color: "#ffffff", lineHeight: 1, marginBottom: 4 }}>
+                {displayScore}<span style={{ fontSize: 20, color: "#475569", fontWeight: 400 }}>/100</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: scoreColor }}>{scoreLabel}</div>
+                {confidenceLevel && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: confidenceLevel === "high" ? "#10b981" : confidenceLevel === "medium" ? "#f59e0b" : "#ef4444",
+                    background: confidenceLevel === "high" ? "rgba(16,185,129,0.1)" : confidenceLevel === "medium" ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)",
+                    border: `1px solid ${confidenceLevel === "high" ? "rgba(16,185,129,0.25)" : confidenceLevel === "medium" ? "rgba(245,158,11,0.25)" : "rgba(239,68,68,0.25)"}`,
+                    borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", letterSpacing: "0.06em",
+                  }}>
+                    {confidenceLevel} confidence
+                  </span>
+                )}
+              </div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 999, background: `${scoreColor}14`, border: `1px solid ${scoreColor}35`, fontSize: 12, color: scoreColor, fontWeight: 500 }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: scoreColor, display: "inline-block" }} />
-                {overall_score >= 75 ? "Recommended to proceed with filing" : overall_score >= 55 ? "Address identified gaps before filing" : "Significant profile development needed"}
+                {displayScore >= 75 ? "Recommended to proceed with filing" : displayScore >= 55 ? "Address identified gaps before filing" : "Significant profile development needed"}
               </div>
             </div>
             {/* Section mini-scores */}
@@ -537,7 +577,7 @@ export default function ResultsPage() {
                     Detailed, priority-ordered actions to strengthen your petition. Each recommendation is calibrated to its impact on adjudication outcome.
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {suggestions.map((s, i) => (
+                    {displaySuggestions.map((s, i) => (
                       <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: i * 0.08 }}
                         style={{ padding: "16px 18px", borderRadius: 10, background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.1)" }}
                       >
