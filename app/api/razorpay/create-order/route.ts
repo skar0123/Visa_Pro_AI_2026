@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 
 const PLAN_AMOUNTS: Record<string, number> = {
-  pro: 99900,      // ₹999 in paise
-  premium: 299900, // ₹2999 in paise
+  pro: 99900,           // ₹999 in paise
+  premium: 299900,      // ₹2999 in paise
+  full_report: 300000,  // ₹3000 in paise — full AI report unlock
 };
 
 export async function POST(req: NextRequest) {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
   const amount = PLAN_AMOUNTS[plan];
   if (!amount) {
     return NextResponse.json(
-      { error: "Invalid plan. Must be 'pro' or 'premium'." },
+      { error: "Invalid plan. Must be 'pro', 'premium', or 'full_report'." },
       { status: 400 }
     );
   }

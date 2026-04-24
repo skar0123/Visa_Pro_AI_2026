@@ -103,16 +103,22 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
+      const profileInputs = {
+        name: form.name,
+        email: form.email,
+        education: form.education,
+        experience: form.experience,
+        skills: form.skills + (form.linkedin ? `\nLinkedIn: ${form.linkedin}` : ""),
+      };
+
+      // Persist inputs so the payment success page can re-evaluate after Stripe redirect.
+      localStorage.setItem("visapro_profile_inputs", JSON.stringify(profileInputs));
+
+      // Session cookie (if paid) is sent automatically by the browser — no manual auth header needed.
       const res = await fetch("/api/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          education: form.education,
-          experience: form.experience,
-          skills: form.skills + (form.linkedin ? `\nLinkedIn: ${form.linkedin}` : ""),
-        }),
+        body: JSON.stringify(profileInputs),
       });
       if (!res.ok) {
         const data = await res.json();
