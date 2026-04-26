@@ -105,7 +105,7 @@ export async function initiatePayment({
     amount: orderData.amount as number,
     currency: orderData.currency,
     name: "NeuralOps AI",
-    description: `${plan === "pro" ? "Pro" : "Premium"} Plan — VisaPro AI`,
+    description: `${plan === "pro" ? "Pro" : "Prime"} Plan — VisaPro AI`,
     order_id: orderData.order_id,
     handler: async (response: RazorpayResponse) => {
       try {

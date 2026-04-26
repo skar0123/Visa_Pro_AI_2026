@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 
 const PLAN_AMOUNTS: Record<string, number> = {
-  pro: 99900,           // ₹999 in paise
-  premium: 299900,      // ₹2999 in paise
-  full_report: 300000,  // ₹3000 in paise — full AI report unlock
+  pro: 499900,          // ₹4999 in paise
+  premium: 999900,      // ₹9999 in paise
+  full_report: 499900,  // ₹4999 in paise — full AI report unlock
 };
 
 export async function POST(req: NextRequest) {
