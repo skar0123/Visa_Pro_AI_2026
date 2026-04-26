@@ -55,6 +55,7 @@ export function loadRazorpayScript(): Promise<boolean> {
 
 export interface InitiatePaymentOptions {
   plan: "pro" | "premium";
+  email: string;
   onSuccess: (plan: string, paymentId: string) => void;
   onError: (message: string) => void;
   onDismiss?: () => void;
@@ -62,6 +63,7 @@ export interface InitiatePaymentOptions {
 
 export async function initiatePayment({
   plan,
+  email,
   onSuccess,
   onError,
   onDismiss,
@@ -72,14 +74,12 @@ export async function initiatePayment({
     return;
   }
 
-  // Load Razorpay checkout script
   const loaded = await loadRazorpayScript();
   if (!loaded) {
     onError("Failed to load payment system. Check your connection and try again.");
     return;
   }
 
-  // Create order on backend
   let orderData: { order_id: string; amount: number; currency: string };
   try {
     const res = await fetch("/api/razorpay/create-order", {
@@ -100,7 +100,6 @@ export async function initiatePayment({
     return;
   }
 
-  // Open Razorpay checkout
   const rzp = new window.Razorpay({
     key: keyId,
     amount: orderData.amount as number,
@@ -108,10 +107,28 @@ export async function initiatePayment({
     name: "NeuralOps AI",
     description: `${plan === "pro" ? "Pro" : "Premium"} Plan — VisaPro AI`,
     order_id: orderData.order_id,
-    handler(response: RazorpayResponse) {
-      onSuccess(plan, response.razorpay_payment_id);
+    handler: async (response: RazorpayResponse) => {
+      try {
+        const verifyRes = await fetch("/api/payment/razorpay/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            email,
+          }),
+        });
+        if (!verifyRes.ok) {
+          onError("Payment verification failed. Please contact support.");
+          return;
+        }
+        onSuccess(plan, response.razorpay_payment_id);
+      } catch {
+        onError("Payment verification error. Please contact support.");
+      }
     },
-    prefill: {},
+    prefill: { email },
     theme: {
       color: "#00d4ff",
       backdrop_color: "rgba(3,5,15,0.85)",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
 const LINKS = [
@@ -149,32 +148,31 @@ export default function LandingNavbar() {
           >
             Explore Products
           </button>
-          <Link href="/dashboard" style={{ textDecoration: "none" }}>
-            <button
-              style={{
-                padding: "8px 18px",
-                borderRadius: 9,
-                border: "none",
-                background: "linear-gradient(135deg, #0055ee 0%, #00d4ff 100%)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 0 20px rgba(0,153,255,0.3)",
-                transition: "opacity 0.2s ease, transform 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget).style.opacity = "0.88";
-                (e.currentTarget).style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget).style.opacity = "1";
-                (e.currentTarget).style.transform = "translateY(0)";
-              }}
-            >
-              Try VisaPro AI →
-            </button>
-          </Link>
+          <button
+            onClick={() => scrollTo("#pricing")}
+            style={{
+              padding: "8px 18px",
+              borderRadius: 9,
+              border: "none",
+              background: "linear-gradient(135deg, #0055ee 0%, #00d4ff 100%)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 0 20px rgba(0,153,255,0.3)",
+              transition: "opacity 0.2s ease, transform 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget).style.opacity = "0.88";
+              (e.currentTarget).style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget).style.opacity = "1";
+              (e.currentTarget).style.transform = "translateY(0)";
+            }}
+          >
+            Get Started →
+          </button>
         </div>
 
         {/* Hamburger */}
@@ -239,23 +237,22 @@ export default function LandingNavbar() {
               </button>
             ))}
             <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "8px 0" }} />
-            <Link href="/dashboard" style={{ textDecoration: "none" }} onClick={() => setOpen(false)}>
-              <button
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  borderRadius: 9,
-                  border: "none",
-                  background: "linear-gradient(135deg, #0055ee, #00d4ff)",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                Try VisaPro AI →
-              </button>
-            </Link>
+            <button
+              onClick={() => { scrollTo("#pricing"); setOpen(false); }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                borderRadius: 9,
+                border: "none",
+                background: "linear-gradient(135deg, #0055ee, #00d4ff)",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Get Started →
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

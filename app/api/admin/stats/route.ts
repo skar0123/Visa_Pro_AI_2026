@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminStats } from "@/lib/services/leadCapture";
+import { getAllUsers } from "@/lib/services/userStore";
 
 export async function GET(request: NextRequest) {
   const adminSecret = process.env.ADMIN_SECRET;
@@ -17,5 +18,17 @@ export async function GET(request: NextRequest) {
   }
 
   const stats = getAdminStats();
-  return NextResponse.json(stats);
+  const users = getAllUsers();
+
+  const freeUsers = users.filter((u) => u.plan === "free").length;
+  const premiumUsers = users.filter((u) => u.plan === "premium").length;
+  const totalUsage = users.reduce((sum, u) => sum + u.usage_count, 0);
+
+  return NextResponse.json({
+    ...stats,
+    users,
+    freeUsers,
+    premiumUsers,
+    totalUsage,
+  });
 }

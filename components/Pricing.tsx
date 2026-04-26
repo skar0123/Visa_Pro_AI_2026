@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { initiatePayment } from "@/lib/razorpay";
@@ -45,11 +44,11 @@ const INDIA_PLANS: Plan[] = [
       { text: "Basic visa profile evaluation", included: true },
       { text: "Overall readiness score", included: true },
       { text: "Limited section insights", included: true },
+      { text: "3 evaluations included", included: true },
       { text: "USCIS-style gap analysis", included: false },
       { text: "Visa probability scoring", included: false },
       { text: "12-month improvement roadmap", included: false },
       { text: "RFE risk detection", included: false },
-      { text: "Interview prep insights", included: false },
       { text: "Downloadable PDF report", included: false },
     ],
   },
@@ -118,11 +117,11 @@ const INTL_PLANS: Plan[] = [
       { text: "Basic visa profile evaluation", included: true },
       { text: "Overall readiness score", included: true },
       { text: "Limited section insights", included: true },
+      { text: "3 evaluations included", included: true },
       { text: "USCIS-style gap analysis", included: false },
       { text: "Visa probability scoring", included: false },
       { text: "12-month improvement roadmap", included: false },
       { text: "RFE risk detection", included: false },
-      { text: "Interview prep insights", included: false },
       { text: "Downloadable PDF report", included: false },
     ],
   },
@@ -227,22 +226,13 @@ function Toast({ message, type }: { message: string; type: "error" | "info" }) {
 function PricingCard({
   plan,
   index,
-  tab,
-  onPay,
-  paying,
-  onPayPalSuccess,
-  onPayPalError,
+  onSelect,
 }: {
   plan: Plan;
   index: number;
-  tab: "india" | "international";
-  onPay: (plan: Plan) => void;
-  paying: string | null;
-  onPayPalSuccess: (planId: string, orderId: string) => void;
-  onPayPalError: (msg: string) => void;
+  onSelect: (plan: Plan) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const isLoading = paying === plan.id;
 
   return (
     <motion.div
@@ -272,7 +262,6 @@ function PricingCard({
           : "0 4px 24px rgba(0,0,0,0.2)",
       }}
     >
-      {/* Popular badge */}
       {plan.popular && (
         <div
           style={{
@@ -296,7 +285,6 @@ function PricingCard({
         </div>
       )}
 
-      {/* Name + description */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: plan.accentColor, marginBottom: 8, opacity: 0.9 }}>
           {plan.name}
@@ -306,7 +294,6 @@ function PricingCard({
         </p>
       </div>
 
-      {/* Price */}
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 28 }}>
         <span style={{ fontSize: 22, fontWeight: 700, color: "rgba(148,163,184,0.7)", marginBottom: 6 }}>
           {plan.currency}
@@ -331,10 +318,8 @@ function PricingCard({
         </span>
       </div>
 
-      {/* Divider */}
       <div style={{ height: 1, background: `linear-gradient(90deg, ${plan.accentColor}25, transparent)`, marginBottom: 24 }} />
 
-      {/* Features */}
       <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 11, flex: 1 }}>
         {plan.features.map((f) => (
           <li
@@ -355,87 +340,37 @@ function PricingCard({
         ))}
       </ul>
 
-      {/* CTA */}
-      {plan.id === "free" ? (
-        <Link href="/dashboard" style={{ textDecoration: "none" }}>
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              width: "100%",
-              padding: "13px 20px",
-              borderRadius: 12,
-              border: `1px solid ${plan.accentColor}35`,
-              background: `${plan.accentColor}0d`,
-              color: plan.accentColor,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {plan.cta} →
-          </motion.button>
-        </Link>
-      ) : tab === "india" ? (
-        /* Razorpay button */
-        <motion.button
-          whileHover={!isLoading ? { scale: 1.03 } : {}}
-          whileTap={!isLoading ? { scale: 0.97 } : {}}
-          onClick={() => onPay(plan)}
-          disabled={isLoading || paying !== null}
-          style={{
-            width: "100%",
-            padding: "13px 20px",
-            borderRadius: 12,
-            border: "none",
-            background: isLoading
-              ? "rgba(0,102,255,0.5)"
-              : plan.popular
-              ? "linear-gradient(135deg, #0055ee 0%, #00d4ff 100%)"
-              : `linear-gradient(135deg, ${plan.accentColor}cc, ${plan.accentColor})`,
-            color: "#fff",
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: isLoading || paying !== null ? "not-allowed" : "pointer",
-            boxShadow: plan.popular && !isLoading ? "0 4px 24px rgba(0,153,255,0.35)" : "none",
-            position: "relative",
-            overflow: "hidden",
-            transition: "background 0.2s ease, box-shadow 0.2s ease",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          {!isLoading && plan.popular && (
-            <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)", animation: "shimmer 2.5s infinite" }} />
-          )}
-          <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
-            {isLoading ? (
-              <>
-                <svg style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
-                  <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="white" strokeWidth="4" />
-                  <path style={{ opacity: 0.85 }} fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Opening checkout...
-              </>
-            ) : (
-              <>{plan.cta} →</>
-            )}
-          </span>
-        </motion.button>
-      ) : (
-        /* PayPal button */
-        <PayPalButton
-          plan={plan.id as PayPalPlan}
-          onSuccess={(orderId) => onPayPalSuccess(plan.id, orderId)}
-          onError={onPayPalError}
-        />
-      )}
+      <motion.button
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        onClick={() => onSelect(plan)}
+        style={{
+          width: "100%",
+          padding: "13px 20px",
+          borderRadius: 12,
+          border: plan.id === "free" ? `1px solid ${plan.accentColor}35` : "none",
+          background: plan.id === "free"
+            ? `${plan.accentColor}0d`
+            : plan.popular
+            ? "linear-gradient(135deg, #0055ee 0%, #00d4ff 100%)"
+            : `linear-gradient(135deg, ${plan.accentColor}cc, ${plan.accentColor})`,
+          color: plan.id === "free" ? plan.accentColor : "#fff",
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: "pointer",
+          boxShadow: plan.popular ? "0 4px 24px rgba(0,153,255,0.35)" : "none",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {plan.popular && plan.id !== "free" && (
+          <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)", animation: "shimmer 2.5s infinite" }} />
+        )}
+        <span style={{ position: "relative" }}>{plan.cta} →</span>
+      </motion.button>
 
       <style>{`
         @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
       `}</style>
     </motion.div>
   );
@@ -484,14 +419,211 @@ function TabToggle({ tab, onChange }: { tab: "india" | "international"; onChange
   );
 }
 
+// ── Email Capture Modal ───────────────────────────────────────────────────────
+interface ModalState {
+  plan: Plan | null;
+  tab: "india" | "international";
+  step: 1 | 2; // 1 = email, 2 = paypal buttons
+  email: string;
+  loading: boolean;
+  error: string;
+}
+
+const MODAL_CLOSED: ModalState = {
+  plan: null,
+  tab: "india",
+  step: 1,
+  email: "",
+  loading: false,
+  error: "",
+};
+
+function EmailModal({
+  modal,
+  onClose,
+  onEmailChange,
+  onContinue,
+  onPayPalSuccess,
+  onPayPalError,
+}: {
+  modal: ModalState;
+  onClose: () => void;
+  onEmailChange: (email: string) => void;
+  onContinue: () => void;
+  onPayPalSuccess: (orderId: string) => void;
+  onPayPalError: (msg: string) => void;
+}) {
+  const { plan, tab, step, email, loading, error } = modal;
+  if (!plan) return null;
+
+  const isPaid = plan.id !== "free";
+  const isInternationalPaid = isPaid && tab === "international";
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        background: "rgba(3,5,15,0.85)",
+        backdropFilter: "blur(12px)",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ duration: 0.22 }}
+        style={{
+          width: "100%",
+          maxWidth: 440,
+          borderRadius: 20,
+          background: "#0d1017",
+          border: `1px solid ${plan.accentColor}35`,
+          padding: 32,
+          boxShadow: `0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px ${plan.accentColor}15`,
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: plan.accentColor, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
+              {plan.name} Plan
+            </p>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: "#fff", margin: 0 }}>
+              {plan.id === "free" ? "Start for Free" : `Get ${plan.name}`}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, width: 32, height: 32, cursor: "pointer", color: "#64748b", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {step === 1 && (
+          <>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Your Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => onEmailChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !loading) onContinue(); }}
+                placeholder="you@example.com"
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 10,
+                  border: `1px solid ${error ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.12)"}`,
+                  background: "#070a10",
+                  color: "#fff",
+                  fontSize: 14,
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <p style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
+                {plan.id === "free"
+                  ? "Your email identifies your account and tracks your 3 free evaluations."
+                  : "Your email is used to create and manage your subscription account."}
+              </p>
+            </div>
+
+            {error && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={onContinue}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "13px 20px",
+                borderRadius: 10,
+                border: "none",
+                background: loading
+                  ? "rgba(0,102,255,0.4)"
+                  : plan.id === "free"
+                  ? `linear-gradient(135deg, rgba(100,116,139,0.5), rgba(100,116,139,0.7))`
+                  : plan.popular
+                  ? "linear-gradient(135deg, #0055ee, #00d4ff)"
+                  : `linear-gradient(135deg, ${plan.accentColor}cc, ${plan.accentColor})`,
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: loading ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {loading ? (
+                <>
+                  <svg style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
+                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="white" strokeWidth="4" />
+                    <path style={{ opacity: 0.85 }} fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  {plan.id === "free" ? "Setting up your account..." : "Opening payment..."}
+                </>
+              ) : (
+                <>
+                  {plan.id === "free"
+                    ? "Continue for Free →"
+                    : isInternationalPaid
+                    ? "Continue to PayPal →"
+                    : `Pay ${plan.currency}${plan.price} with Razorpay →`}
+                </>
+              )}
+            </button>
+          </>
+        )}
+
+        {step === 2 && isInternationalPaid && (
+          <>
+            <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 20, lineHeight: 1.6 }}>
+              Complete your payment below. Your account will be activated immediately after payment.
+            </p>
+            <PayPalButton
+              plan={plan.id as PayPalPlan}
+              onSuccess={onPayPalSuccess}
+              onError={onPayPalError}
+            />
+            <button
+              onClick={onClose}
+              style={{ width: "100%", marginTop: 12, padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#64748b", fontSize: 13, cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </>
+        )}
+
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Section ───────────────────────────────────────────────────────────────────
 export default function Pricing() {
   const router = useRouter();
   const [tab, setTab] = useState<"india" | "international">("international");
-  const [paying, setPaying] = useState<string | null>(null);
+  const [modal, setModal] = useState<ModalState>(MODAL_CLOSED);
+  const [paying, setPaying] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "info" } | null>(null);
 
-  // Auto-detect India timezone on mount
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (tz.includes("Calcutta") || tz.includes("Kolkata")) {
@@ -504,37 +636,102 @@ export default function Pricing() {
     setTimeout(() => setToast(null), duration);
   }
 
-  async function handleRazorpay(plan: Plan) {
-    if (plan.id === "free") { router.push("/dashboard"); return; }
-    setPaying(plan.id);
-
-    await initiatePayment({
-      plan: plan.id as "pro" | "premium",
-      onSuccess(planName, paymentId) {
-        setPaying(null);
-        showToast(`Payment successful! ID: ${paymentId.slice(0, 16)}…`, "info", 3000);
-        setTimeout(() => {
-          router.push(`/dashboard?plan=${planName}&payment_id=${paymentId}`);
-        }, 800);
-      },
-      onError(message) {
-        setPaying(null);
-        showToast(message, "error");
-      },
-      onDismiss() {
-        setPaying(null);
-      },
-    });
+  function handlePlanSelect(plan: Plan) {
+    setModal({ plan, tab, step: 1, email: "", loading: false, error: "" });
   }
 
-  function handlePayPalSuccess(planId: string, orderId: string) {
-    showToast(`Payment successful! Order: ${orderId.slice(0, 14)}…`, "info", 3000);
-    setTimeout(() => {
-      router.push(`/dashboard?plan=${planId}&payment_id=${orderId}`);
-    }, 800);
+  async function handleModalContinue() {
+    const { plan, tab: currentTab, email } = modal;
+    if (!plan) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmedEmail)) {
+      setModal((m) => ({ ...m, error: "Please enter a valid email address." }));
+      return;
+    }
+
+    setModal((m) => ({ ...m, loading: true, error: "" }));
+
+    // ── Free plan: init session → dashboard ──────────────────────────────────
+    if (plan.id === "free") {
+      try {
+        const res = await fetch("/api/auth/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: trimmedEmail }),
+        });
+        if (res.ok) {
+          setModal(MODAL_CLOSED);
+          router.push("/dashboard");
+        } else {
+          const data = await res.json();
+          setModal((m) => ({ ...m, loading: false, error: data.error || "Setup failed. Please try again." }));
+        }
+      } catch {
+        setModal((m) => ({ ...m, loading: false, error: "Network error. Please try again." }));
+      }
+      return;
+    }
+
+    // ── India paid plan: open Razorpay ───────────────────────────────────────
+    if (currentTab === "india") {
+      setModal((m) => ({ ...m, loading: false }));
+      setPaying(true);
+
+      await initiatePayment({
+        plan: plan.id as "pro" | "premium",
+        email: trimmedEmail,
+        onSuccess() {
+          setPaying(false);
+          setModal(MODAL_CLOSED);
+          showToast("Payment successful! Redirecting…", "info", 2500);
+          setTimeout(() => router.push("/dashboard"), 1000);
+        },
+        onError(message) {
+          setPaying(false);
+          setModal((m) => ({ ...m, loading: false, error: message }));
+        },
+        onDismiss() {
+          setPaying(false);
+          setModal((m) => ({ ...m, loading: false }));
+        },
+      });
+      return;
+    }
+
+    // ── International paid plan: show PayPal buttons ─────────────────────────
+    setModal((m) => ({ ...m, loading: false, step: 2 }));
+  }
+
+  async function handlePayPalSuccess(orderId: string) {
+    const email = modal.email.trim();
+    const planId = modal.plan?.id ?? "pro";
+    try {
+      const res = await fetch("/api/auth/upgrade-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          provider: "paypal",
+          orderId,
+          amount: planId === "premium" ? 9900 : 2900,
+          currency: "USD",
+        }),
+      });
+      if (res.ok) {
+        setModal(MODAL_CLOSED);
+        showToast("Payment successful! Redirecting…", "info", 2500);
+        setTimeout(() => router.push("/dashboard"), 1000);
+      } else {
+        setModal((m) => ({ ...m, error: "Session activation failed. Please contact support." }));
+      }
+    } catch {
+      setModal((m) => ({ ...m, error: "Network error. Please contact support." }));
+    }
   }
 
   function handlePayPalError(msg: string) {
+    setModal((m) => ({ ...m, error: msg }));
     showToast(msg, "error");
   }
 
@@ -542,13 +739,11 @@ export default function Pricing() {
 
   return (
     <section id="pricing" style={{ padding: "120px 24px", position: "relative", overflow: "hidden" }}>
-      {/* Background glow */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)", width: 900, height: 600, background: "radial-gradient(ellipse, rgba(0,102,255,0.06) 0%, transparent 65%)" }} />
       </div>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -571,12 +766,10 @@ export default function Pricing() {
           </p>
         </motion.div>
 
-        {/* Tab toggle */}
         <div style={{ display: "flex", justifyContent: "center" }}>
-          <TabToggle tab={tab} onChange={(t) => { setTab(t); setPaying(null); }} />
+          <TabToggle tab={tab} onChange={(t) => setTab(t)} />
         </div>
 
-        {/* Cards — AnimatePresence for tab switch */}
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -591,17 +784,12 @@ export default function Pricing() {
                 key={`${tab}-${plan.id}`}
                 plan={plan}
                 index={i}
-                tab={tab}
-                onPay={handleRazorpay}
-                paying={paying}
-                onPayPalSuccess={handlePayPalSuccess}
-                onPayPalError={handlePayPalError}
+                onSelect={handlePlanSelect}
               />
             ))}
           </motion.div>
         </AnimatePresence>
 
-        {/* Footer note */}
         <motion.p
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -620,7 +808,21 @@ export default function Pricing() {
         </motion.p>
       </div>
 
-      {/* Toast */}
+      {/* Email capture modal */}
+      <AnimatePresence>
+        {modal.plan && (
+          <EmailModal
+            key="email-modal"
+            modal={modal}
+            onClose={() => { if (!paying) setModal(MODAL_CLOSED); }}
+            onEmailChange={(email) => setModal((m) => ({ ...m, email, error: "" }))}
+            onContinue={handleModalContinue}
+            onPayPalSuccess={handlePayPalSuccess}
+            onPayPalError={handlePayPalError}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {toast && <Toast key="toast" message={toast.message} type={toast.type} />}
       </AnimatePresence>

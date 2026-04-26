@@ -9,85 +9,51 @@ import {
 } from "@/lib/ai";
 import { runHybridEvaluation } from "@/lib/hybrid";
 import { captureLead, validateEmail } from "@/lib/services/leadCapture";
+import {
+  getOrCreateUser,
+  incrementUsage,
+  FREE_USAGE_LIMIT,
+} from "@/lib/services/userStore";
 
-// ── Session verification (inline — no imported helper, fully auditable) ────────
+// ── Session verification ──────────────────────────────────────────────────────
 
 function getSessionSecret(): string {
   const s = process.env.SESSION_SECRET;
   if (!s) {
     console.warn(
-      "[evaluate] WARNING: SESSION_SECRET env var is NOT set. " +
-        "All requests will be treated as FREE users."
+      "[evaluate] WARNING: SESSION_SECRET not set — all requests treated as free."
     );
   }
   return s || "";
 }
 
-function verifySessionToken(raw: string): { isPaid: boolean; email: string } | null {
+function extractEmailFromCookie(request: NextRequest): string | null {
   const secret = getSessionSecret();
-  if (!secret) return null; // no secret → cannot verify any token → free
+  if (!secret) return null;
+
+  const cookieHeader = request.headers.get("cookie") || "";
+  const match = cookieHeader.match(/visapro_session=([^;]+)/);
+  if (!match) return null;
 
   try {
+    const raw = decodeURIComponent(match[1]);
     const dot = raw.lastIndexOf(".");
     if (dot < 1) return null;
 
     const data = raw.slice(0, dot);
     const sig = raw.slice(dot + 1);
-    const expected = createHmac("sha256", secret)
-      .update(data)
-      .digest("base64url");
-
-    if (sig !== expected) {
-      console.log("[evaluate] token signature MISMATCH — treating as free");
-      return null;
-    }
+    const expected = createHmac("sha256", secret).update(data).digest("base64url");
+    if (sig !== expected) return null;
 
     const payload = JSON.parse(Buffer.from(data, "base64url").toString());
-
-    if (!payload.exp || payload.exp < Date.now()) {
-      console.log("[evaluate] token EXPIRED — treating as free");
-      return null;
-    }
-
-    return { isPaid: payload.isPaid === true, email: payload.email ?? "" };
-  } catch (err) {
-    console.log("[evaluate] token parse error:", err);
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload.email ?? null;
+  } catch {
     return null;
   }
 }
 
-function resolveAccessFromCookie(request: NextRequest): boolean {
-  // ONLY the HTTP-only cookie is trusted.
-  // Authorization header fallback is intentionally removed —
-  // old localStorage tokens must not grant access.
-  const cookieHeader = request.headers.get("cookie") || "";
-
-  console.log(
-    "[evaluate] COOKIE header:",
-    cookieHeader ? cookieHeader.replace(/visapro_session=[^;]+/, "visapro_session=<redacted>") : "(none)"
-  );
-
-  const match = cookieHeader.match(/visapro_session=([^;]+)/);
-  if (!match) {
-    console.log("[evaluate] visapro_session cookie: NOT FOUND");
-    return false;
-  }
-
-  const raw = decodeURIComponent(match[1]);
-  const session = verifySessionToken(raw);
-
-  if (!session) {
-    console.log("[evaluate] visapro_session cookie: INVALID or EXPIRED");
-    return false;
-  }
-
-  console.log(
-    `[evaluate] visapro_session cookie: VALID — email=${session.email} isPaid=${session.isPaid}`
-  );
-  return session.isPaid;
-}
-
-// ── Access-controlled response builder ───────────────────────────────────────
+// ── Response builders ─────────────────────────────────────────────────────────
 
 function buildFreeResponse(
   overallScore: number,
@@ -95,18 +61,12 @@ function buildFreeResponse(
   visaProbabilities: Record<string, number>
 ): Record<string, unknown> {
   const score = hybridScore ?? overallScore;
-  // STRICT: only score + probabilities — NO gaps, roadmap, RFE, hybrid_analysis, sections.
-  // overall_score is included as a UI-compatibility alias for final_score (same value).
   return {
     final_score: score,
-    overall_score: score, // alias: frontend StoredResult requires this field
+    overall_score: score,
     visa_probabilities: visaProbabilities,
     isPremiumLocked: true,
   };
-}
-
-function buildPaidResponse(full: Record<string, unknown>): Record<string, unknown> {
-  return full;
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -117,7 +77,9 @@ function memMB(): string {
 }
 
 export async function POST(request: NextRequest) {
-  console.log(`\n[evaluate] ===== NEW REQUEST ===== ${new Date().toISOString()} — ${memMB()}`);
+  console.log(
+    `\n[evaluate] ===== NEW REQUEST ===== ${new Date().toISOString()} — ${memMB()}`
+  );
 
   let body: Record<string, unknown>;
   try {
@@ -137,13 +99,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Step 1: Determine access level ──────────────────────────────────────────
-  const isPaid = resolveAccessFromCookie(request);
+  // ── Step 1: Identify user from session cookie ──────────────────────────────
+  const sessionEmail = extractEmailFromCookie(request);
+  const profileEmail = email && typeof email === "string" ? email : null;
+  const resolvedEmail = sessionEmail || profileEmail;
 
-  console.log(`[evaluate] IS_PAID: ${isPaid}`);
-  console.log(`[evaluate] RETURN TYPE: ${isPaid ? "PAID — full report" : "FREE — score + probabilities only"}`);
+  let isPremium = false;
+  let user = null;
 
-  // ── Step 2: Run full pipeline (always, regardless of tier) ──────────────────
+  if (resolvedEmail) {
+    user = getOrCreateUser(resolvedEmail);
+    isPremium = user.plan === "premium";
+
+    // Usage limit for free users
+    if (!isPremium && user.usage_count >= FREE_USAGE_LIMIT) {
+      console.log(
+        `[evaluate] FREE LIMIT REACHED — email=${resolvedEmail} usage_count=${user.usage_count}`
+      );
+      return Response.json(
+        {
+          error: "Free plan limit reached. Please upgrade to continue.",
+          upgradeRequired: true,
+          usage_count: user.usage_count,
+          limit: FREE_USAGE_LIMIT,
+        },
+        { status: 403 }
+      );
+    }
+  }
+
+  console.log(
+    `[evaluate] email=${resolvedEmail ?? "anonymous"} plan=${user?.plan ?? "none"} isPremium=${isPremium} usage=${user?.usage_count ?? 0}`
+  );
+
+  // ── Step 2: Run evaluation pipeline ───────────────────────────────────────
   const input: ProfileInput = {
     name: name || "Applicant",
     education: (education as string) || "",
@@ -159,26 +148,30 @@ export async function POST(request: NextRequest) {
 
   console.log(
     `[evaluate] pipeline done — overall_score=${result.overall_score} ` +
-      `hybrid_score=${hybrid_analysis?.final_score ?? "n/a"} ` +
-      `confidence=${hybrid_analysis?.confidence_level ?? "n/a"}`
+      `hybrid_score=${hybrid_analysis?.final_score ?? "n/a"}`
   );
 
-  // ── Step 3: Lead capture (always, non-blocking) ──────────────────────────────
-  if (email && typeof email === "string" && validateEmail(email)) {
+  // ── Step 3: Lead capture ───────────────────────────────────────────────────
+  const captureEmail = resolvedEmail || (profileEmail ?? null);
+  if (captureEmail && validateEmail(captureEmail)) {
     captureLead({
       name: (name as string) || "Anonymous",
-      email,
+      email: captureEmail,
       score: result.overall_score,
       timestamp: new Date().toISOString(),
     }).catch(() => {});
   }
 
-  // ── Step 4: Apply strict access control ──────────────────────────────────────
-  if (!isPaid) {
-    console.log(
-      `[evaluate] FREE response — returning ONLY: final_score=${hybrid_analysis?.final_score ?? result.overall_score}, visa_probabilities`
-    );
+  // ── Step 4: Increment usage ────────────────────────────────────────────────
+  if (resolvedEmail) {
+    incrementUsage(resolvedEmail);
+  }
 
+  // ── Step 5: Return response based on plan ─────────────────────────────────
+  if (!isPremium) {
+    console.log(
+      `[evaluate] FREE response — score=${hybrid_analysis?.final_score ?? result.overall_score}`
+    );
     return Response.json(
       buildFreeResponse(
         result.overall_score,
@@ -188,7 +181,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Paid: assemble and return full report
   const fullResponse: Record<string, unknown> = {
     ...result,
     roadmap,
@@ -197,10 +189,6 @@ export async function POST(request: NextRequest) {
     ...(hybrid_analysis ? { hybrid_analysis } : {}),
   };
 
-  console.log(
-    `[evaluate] PAID response — returning full report ` +
-      `(${Object.keys(fullResponse).join(", ")})`
-  );
-
-  return Response.json(buildPaidResponse(fullResponse));
+  console.log(`[evaluate] PREMIUM response — fields: ${Object.keys(fullResponse).join(", ")}`);
+  return Response.json(fullResponse);
 }

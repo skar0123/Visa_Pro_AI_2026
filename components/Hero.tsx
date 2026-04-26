@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 
@@ -203,28 +202,27 @@ export default function Hero() {
             Explore Products
           </motion.button>
 
-          <Link href="/dashboard" style={{ textDecoration: "none" }}>
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                padding: "14px 32px",
-                borderRadius: 12,
-                border: "none",
-                background: "linear-gradient(135deg, #0055ee 0%, #00d4ff 100%)",
-                color: "#fff",
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 4px 28px rgba(0,153,255,0.4), 0 0 0 1px rgba(0,212,255,0.15)",
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)", animation: "shimmer 2.5s infinite" }} />
-              <span style={{ position: "relative" }}>Try VisaPro AI →</span>
-            </motion.button>
-          </Link>
+          <motion.button
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => document.querySelector("#pricing")?.scrollIntoView({ behavior: "smooth" })}
+            style={{
+              padding: "14px 32px",
+              borderRadius: 12,
+              border: "none",
+              background: "linear-gradient(135deg, #0055ee 0%, #00d4ff 100%)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 4px 28px rgba(0,153,255,0.4), 0 0 0 1px rgba(0,212,255,0.15)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <span style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)", animation: "shimmer 2.5s infinite" }} />
+            <span style={{ position: "relative" }}>View Pricing →</span>
+          </motion.button>
         </motion.div>
 
         {/* Trust strip */}

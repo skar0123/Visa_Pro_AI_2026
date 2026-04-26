@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { createSession, buildSessionCookie } from "@/lib/services/session";
 import { validateEmail, trackPayment } from "@/lib/services/leadCapture";
+import { getOrCreateUser, upgradeToPremium } from "@/lib/services/userStore";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,30 +16,20 @@ export async function POST(request: NextRequest) {
       };
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return NextResponse.json(
-        { error: "Missing payment fields." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing payment fields." }, { status: 400 });
     }
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keySecret) {
-      return NextResponse.json(
-        { error: "Payment configuration error." },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Payment configuration error." }, { status: 500 });
     }
 
-    // Verify Razorpay HMAC-SHA256 signature
     const expectedSig = createHmac("sha256", keySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
     if (expectedSig !== razorpay_signature) {
-      return NextResponse.json(
-        { error: "Invalid payment signature." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid payment signature." }, { status: 400 });
     }
 
     const sessionEmail =
@@ -46,26 +37,25 @@ export async function POST(request: NextRequest) {
         ? email
         : `razorpay_${razorpay_payment_id}@visapro.ai`;
 
+    // Persist user upgrade in the user store
+    getOrCreateUser(sessionEmail);
+    upgradeToPremium(sessionEmail);
+
     const token = createSession(sessionEmail, true);
 
-    // Track payment in persistent store
     trackPayment({
       provider: "razorpay",
       email: sessionEmail,
-      amount: 300000, // ₹3000 in paise
+      amount: 300000,
       currency: "INR",
       timestamp: new Date().toISOString(),
     });
 
-    // Set HTTP-only session cookie — browser sends it automatically on all requests
     const res = NextResponse.json({ success: true, isPaid: true });
     res.headers.set("Set-Cookie", buildSessionCookie(token));
     return res;
   } catch (err) {
     console.error("[razorpay-verify] error:", err);
-    return NextResponse.json(
-      { error: "Payment verification failed." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Payment verification failed." }, { status: 500 });
   }
 }
