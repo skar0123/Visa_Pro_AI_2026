@@ -22,7 +22,7 @@ interface Lead {
 }
 
 interface PaymentEvent {
-  provider: "razorpay" | "stripe";
+  provider: "razorpay";
   email: string;
   amount: number;
   currency: string;
@@ -322,7 +322,7 @@ export default function AdminPage() {
                           {stats.recentPayments.map((payment, i) => (
                             <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                               <td style={{ padding: "10px 12px" }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, color: payment.provider === "razorpay" ? "#0099ff" : "#a78bfa", background: payment.provider === "razorpay" ? "rgba(0,153,255,0.1)" : "rgba(167,139,250,0.1)", border: `1px solid ${payment.provider === "razorpay" ? "rgba(0,153,255,0.25)" : "rgba(167,139,250,0.25)"}`, textTransform: "uppercase" }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, color: "#0099ff", background: "rgba(0,153,255,0.1)", border: "1px solid rgba(0,153,255,0.25)", textTransform: "uppercase" }}>
                                   {payment.provider}
                                 </span>
                               </td>

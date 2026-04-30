@@ -111,7 +111,6 @@ export default function DashboardPage() {
         skills: form.skills + (form.linkedin ? `\nLinkedIn: ${form.linkedin}` : ""),
       };
 
-      // Persist inputs so the payment success page can re-evaluate after Stripe redirect.
       localStorage.setItem("visapro_profile_inputs", JSON.stringify(profileInputs));
 
       // Session cookie (if paid) is sent automatically by the browser — no manual auth header needed.

@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { initiatePayment } from "@/lib/razorpay";
-import PayPalButton from "@/components/PayPalButton";
-import type { PayPalPlan } from "@/lib/paypal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PlanFeature {
@@ -17,7 +15,6 @@ interface Plan {
   id: "free" | "pro" | "premium";
   name: string;
   price: number;
-  currency: string;
   period: string;
   description: string;
   features: PlanFeature[];
@@ -27,13 +24,12 @@ interface Plan {
   glowColor: string;
 }
 
-// ── India plans (Razorpay / INR) ──────────────────────────────────────────────
-const INDIA_PLANS: Plan[] = [
+// ── Plans (INR, Razorpay) ─────────────────────────────────────────────────────
+const PLANS: Plan[] = [
   {
     id: "free",
     name: "Free",
     price: 0,
-    currency: "₹",
     period: "forever",
     description: "Get started with basic AI visa evaluation at no cost.",
     accentColor: "rgba(100,116,139,0.8)",
@@ -56,7 +52,6 @@ const INDIA_PLANS: Plan[] = [
     id: "pro",
     name: "Pro",
     price: 4999,
-    currency: "₹",
     period: "per month",
     description: "Full AI-powered analysis built for serious visa applicants.",
     accentColor: "#00d4ff",
@@ -79,80 +74,6 @@ const INDIA_PLANS: Plan[] = [
     id: "premium",
     name: "Prime",
     price: 9999,
-    currency: "₹",
-    period: "per month",
-    description: "The complete toolkit for professionals pursuing extraordinary ability visas.",
-    accentColor: "#a78bfa",
-    glowColor: "rgba(139,92,246,0.15)",
-    popular: false,
-    cta: "Get Prime",
-    features: [
-      { text: "Everything in Pro", included: true },
-      { text: "Advanced 12-month strategy plan", included: true },
-      { text: "Priority AI analysis", included: true },
-      { text: "Downloadable PDF report", included: true },
-      { text: "Interview preparation insights", included: true },
-      { text: "Attorney-grade petition checklist", included: true },
-      { text: "Unlimited evaluations", included: true },
-      { text: "Early access to new features", included: true },
-      { text: "Dedicated support", included: true },
-    ],
-  },
-];
-
-// ── International plans (PayPal / USD) ────────────────────────────────────────
-const INTL_PLANS: Plan[] = [
-  {
-    id: "free",
-    name: "Free",
-    price: 0,
-    currency: "$",
-    period: "forever",
-    description: "Get started with basic AI visa evaluation at no cost.",
-    accentColor: "rgba(100,116,139,0.8)",
-    glowColor: "rgba(100,116,139,0.12)",
-    popular: false,
-    cta: "Start Free",
-    features: [
-      { text: "Basic visa profile evaluation", included: true },
-      { text: "Overall readiness score", included: true },
-      { text: "Limited section insights", included: true },
-      { text: "3 evaluations included", included: true },
-      { text: "USCIS-style gap analysis", included: false },
-      { text: "Visa probability scoring", included: false },
-      { text: "12-month improvement roadmap", included: false },
-      { text: "RFE risk detection", included: false },
-      { text: "Downloadable PDF report", included: false },
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 99,
-    currency: "$",
-    period: "per month",
-    description: "Full AI-powered analysis built for serious visa applicants.",
-    accentColor: "#00d4ff",
-    glowColor: "rgba(0,212,255,0.15)",
-    popular: true,
-    cta: "Upgrade to Pro",
-    features: [
-      { text: "Full AI visa evaluation", included: true },
-      { text: "Overall readiness score", included: true },
-      { text: "USCIS-style gap analysis", included: true },
-      { text: "Visa probability scoring (EB-1A, NIW, O-1A)", included: true },
-      { text: "12-month improvement roadmap", included: true },
-      { text: "RFE risk detection", included: true },
-      { text: "Approval simulation", included: true },
-      { text: "Interview prep insights", included: false },
-      { text: "Downloadable PDF report", included: false },
-    ],
-  },
-  {
-    id: "premium",
-    name: "Prime",
-    price: 199,
-    currency: "$",
     period: "per month",
     description: "The complete toolkit for professionals pursuing extraordinary ability visas.",
     accentColor: "#a78bfa",
@@ -295,9 +216,9 @@ function PricingCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 28 }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: "rgba(148,163,184,0.7)", marginBottom: 6 }}>
-          {plan.currency}
-        </span>
+        {plan.price > 0 && (
+          <span style={{ fontSize: 22, fontWeight: 700, color: "rgba(148,163,184,0.7)", marginBottom: 6 }}>₹</span>
+        )}
         <span
           style={{
             fontSize: 52,
@@ -311,11 +232,13 @@ function PricingCard({
             backgroundClip: plan.popular ? "text" : undefined,
           }}
         >
-          {plan.price}
+          {plan.price === 0 ? "Free" : plan.price.toLocaleString("en-IN")}
         </span>
-        <span style={{ fontSize: 13, color: "rgba(100,116,139,0.6)", marginBottom: 10, lineHeight: 1.3 }}>
-          /{plan.period}
-        </span>
+        {plan.price > 0 && (
+          <span style={{ fontSize: 13, color: "rgba(100,116,139,0.6)", marginBottom: 10, lineHeight: 1.3 }}>
+            /{plan.period}
+          </span>
+        )}
       </div>
 
       <div style={{ height: 1, background: `linear-gradient(90deg, ${plan.accentColor}25, transparent)`, marginBottom: 24 }} />
@@ -376,88 +299,29 @@ function PricingCard({
   );
 }
 
-// ── Tab toggle ────────────────────────────────────────────────────────────────
-function TabToggle({ tab, onChange }: { tab: "india" | "international"; onChange: (t: "india" | "international") => void }) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        borderRadius: 999,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        padding: 4,
-        gap: 4,
-        marginBottom: 56,
-      }}
-    >
-      {(["india", "international"] as const).map((t) => {
-        const active = tab === t;
-        return (
-          <motion.button
-            key={t}
-            onClick={() => onChange(t)}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              padding: "9px 22px",
-              borderRadius: 999,
-              border: "none",
-              background: active ? "linear-gradient(135deg, #0055ee, #00d4ff)" : "transparent",
-              color: active ? "#fff" : "rgba(100,116,139,0.75)",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: active ? "0 4px 16px rgba(0,153,255,0.3)" : "none",
-              transition: "background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {t === "india" ? "🇮🇳 India" : "🌍 International"}
-          </motion.button>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Email Capture Modal ───────────────────────────────────────────────────────
 interface ModalState {
   plan: Plan | null;
-  tab: "india" | "international";
-  step: 1 | 2; // 1 = email, 2 = paypal buttons
   email: string;
   loading: boolean;
   error: string;
 }
 
-const MODAL_CLOSED: ModalState = {
-  plan: null,
-  tab: "india",
-  step: 1,
-  email: "",
-  loading: false,
-  error: "",
-};
+const MODAL_CLOSED: ModalState = { plan: null, email: "", loading: false, error: "" };
 
 function EmailModal({
   modal,
   onClose,
   onEmailChange,
   onContinue,
-  onPayPalSuccess,
-  onPayPalError,
 }: {
   modal: ModalState;
   onClose: () => void;
   onEmailChange: (email: string) => void;
   onContinue: () => void;
-  onPayPalSuccess: (orderId: string) => void;
-  onPayPalError: (msg: string) => void;
 }) {
-  const { plan, tab, step, email, loading, error } = modal;
+  const { plan, email, loading, error } = modal;
   if (!plan) return null;
-
-  const isPaid = plan.id !== "free";
-  const isInternationalPaid = isPaid && tab === "international";
 
   return (
     <div
@@ -507,108 +371,83 @@ function EmailModal({
           </button>
         </div>
 
-        {step === 1 && (
-          <>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Your Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => onEmailChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !loading) onContinue(); }}
-                placeholder="you@example.com"
-                autoFocus
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  borderRadius: 10,
-                  border: `1px solid ${error ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.12)"}`,
-                  background: "#070a10",
-                  color: "#fff",
-                  fontSize: 14,
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-              <p style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
-                {plan.id === "free"
-                  ? "Your email identifies your account and tracks your 3 free evaluations."
-                  : "Your email is used to create and manage your subscription account."}
-              </p>
-            </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Your Email Address
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => onEmailChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !loading) onContinue(); }}
+            placeholder="you@example.com"
+            autoFocus
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: 10,
+              border: `1px solid ${error ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.12)"}`,
+              background: "#070a10",
+              color: "#fff",
+              fontSize: 14,
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+          <p style={{ fontSize: 11, color: "#334155", marginTop: 6 }}>
+            {plan.id === "free"
+              ? "Your email identifies your account and tracks your 3 free evaluations."
+              : "Your email is used to create and manage your subscription account."}
+          </p>
+        </div>
 
-            {error && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={onContinue}
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "13px 20px",
-                borderRadius: 10,
-                border: "none",
-                background: loading
-                  ? "rgba(0,102,255,0.4)"
-                  : plan.id === "free"
-                  ? `linear-gradient(135deg, rgba(100,116,139,0.5), rgba(100,116,139,0.7))`
-                  : plan.popular
-                  ? "linear-gradient(135deg, #0055ee, #00d4ff)"
-                  : `linear-gradient(135deg, ${plan.accentColor}cc, ${plan.accentColor})`,
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: loading ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
-            >
-              {loading ? (
-                <>
-                  <svg style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
-                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="white" strokeWidth="4" />
-                    <path style={{ opacity: 0.85 }} fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  {plan.id === "free" ? "Setting up your account..." : "Opening payment..."}
-                </>
-              ) : (
-                <>
-                  {plan.id === "free"
-                    ? "Continue for Free →"
-                    : isInternationalPaid
-                    ? "Continue to PayPal →"
-                    : `Pay ${plan.currency}${plan.price} with Razorpay →`}
-                </>
-              )}
-            </button>
-          </>
+        {error && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
+            {error}
+          </div>
         )}
 
-        {step === 2 && isInternationalPaid && (
-          <>
-            <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 20, lineHeight: 1.6 }}>
-              Complete your payment below. Your account will be activated immediately after payment.
-            </p>
-            <PayPalButton
-              plan={plan.id as PayPalPlan}
-              onSuccess={onPayPalSuccess}
-              onError={onPayPalError}
-            />
-            <button
-              onClick={onClose}
-              style={{ width: "100%", marginTop: 12, padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#64748b", fontSize: 13, cursor: "pointer" }}
-            >
-              Cancel
-            </button>
-          </>
-        )}
+        <button
+          onClick={onContinue}
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "13px 20px",
+            borderRadius: 10,
+            border: "none",
+            background: loading
+              ? "rgba(0,102,255,0.4)"
+              : plan.id === "free"
+              ? `linear-gradient(135deg, rgba(100,116,139,0.5), rgba(100,116,139,0.7))`
+              : plan.popular
+              ? "linear-gradient(135deg, #0055ee, #00d4ff)"
+              : `linear-gradient(135deg, ${plan.accentColor}cc, ${plan.accentColor})`,
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: loading ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          {loading ? (
+            <>
+              <svg style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
+                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="white" strokeWidth="4" />
+                <path style={{ opacity: 0.85 }} fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {plan.id === "free" ? "Setting up your account..." : "Opening payment..."}
+            </>
+          ) : (
+            <>
+              {plan.id === "free"
+                ? "Continue for Free →"
+                : `Pay Securely with Razorpay →`}
+            </>
+          )}
+        </button>
 
         <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </motion.div>
@@ -619,17 +458,9 @@ function EmailModal({
 // ── Section ───────────────────────────────────────────────────────────────────
 export default function Pricing() {
   const router = useRouter();
-  const [tab, setTab] = useState<"india" | "international">("international");
   const [modal, setModal] = useState<ModalState>(MODAL_CLOSED);
   const [paying, setPaying] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "info" } | null>(null);
-
-  useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz.includes("Calcutta") || tz.includes("Kolkata")) {
-      setTab("india");
-    }
-  }, []);
 
   function showToast(message: string, type: "error" | "info", duration = 4000) {
     setToast({ message, type });
@@ -637,11 +468,11 @@ export default function Pricing() {
   }
 
   function handlePlanSelect(plan: Plan) {
-    setModal({ plan, tab, step: 1, email: "", loading: false, error: "" });
+    setModal({ plan, email: "", loading: false, error: "" });
   }
 
   async function handleModalContinue() {
-    const { plan, tab: currentTab, email } = modal;
+    const { plan, email } = modal;
     if (!plan) return;
 
     const trimmedEmail = email.trim();
@@ -673,69 +504,29 @@ export default function Pricing() {
       return;
     }
 
-    // ── India paid plan: open Razorpay ───────────────────────────────────────
-    if (currentTab === "india") {
-      setModal((m) => ({ ...m, loading: false }));
-      setPaying(true);
+    // ── Paid plan: open Razorpay (all regions) ───────────────────────────────
+    setModal((m) => ({ ...m, loading: false }));
+    setPaying(true);
 
-      await initiatePayment({
-        plan: plan.id as "pro" | "premium",
-        email: trimmedEmail,
-        onSuccess() {
-          setPaying(false);
-          setModal(MODAL_CLOSED);
-          showToast("Payment successful! Redirecting…", "info", 2500);
-          setTimeout(() => router.push("/dashboard"), 1000);
-        },
-        onError(message) {
-          setPaying(false);
-          setModal((m) => ({ ...m, loading: false, error: message }));
-        },
-        onDismiss() {
-          setPaying(false);
-          setModal((m) => ({ ...m, loading: false }));
-        },
-      });
-      return;
-    }
-
-    // ── International paid plan: show PayPal buttons ─────────────────────────
-    setModal((m) => ({ ...m, loading: false, step: 2 }));
-  }
-
-  async function handlePayPalSuccess(orderId: string) {
-    const email = modal.email.trim();
-    const planId = modal.plan?.id ?? "pro";
-    try {
-      const res = await fetch("/api/auth/upgrade-paid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          provider: "paypal",
-          orderId,
-          amount: planId === "premium" ? 19900 : 9900,
-          currency: "USD",
-        }),
-      });
-      if (res.ok) {
+    await initiatePayment({
+      plan: plan.id as "pro" | "premium",
+      email: trimmedEmail,
+      onSuccess() {
+        setPaying(false);
         setModal(MODAL_CLOSED);
         showToast("Payment successful! Redirecting…", "info", 2500);
         setTimeout(() => router.push("/dashboard"), 1000);
-      } else {
-        setModal((m) => ({ ...m, error: "Session activation failed. Please contact support." }));
-      }
-    } catch {
-      setModal((m) => ({ ...m, error: "Network error. Please contact support." }));
-    }
+      },
+      onError(message) {
+        setPaying(false);
+        setModal((m) => ({ ...m, loading: false, error: message }));
+      },
+      onDismiss() {
+        setPaying(false);
+        setModal((m) => ({ ...m, loading: false }));
+      },
+    });
   }
-
-  function handlePayPalError(msg: string) {
-    setModal((m) => ({ ...m, error: msg }));
-    showToast(msg, "error");
-  }
-
-  const plans = tab === "india" ? INDIA_PLANS : INTL_PLANS;
 
   return (
     <section id="pricing" style={{ padding: "120px 24px", position: "relative", overflow: "hidden" }}>
@@ -749,7 +540,7 @@ export default function Pricing() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          style={{ textAlign: "center", marginBottom: 40 }}
+          style={{ textAlign: "center", marginBottom: 56 }}
         >
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.18)", color: "#00d4ff", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 20 }}>
             Pricing
@@ -766,29 +557,16 @@ export default function Pricing() {
           </p>
         </motion.div>
 
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <TabToggle tab={tab} onChange={(t) => setTab(t)} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, alignItems: "start" }}>
+          {PLANS.map((plan, i) => (
+            <PricingCard
+              key={plan.id}
+              plan={plan}
+              index={i}
+              onSelect={handlePlanSelect}
+            />
+          ))}
         </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.28 }}
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, alignItems: "start" }}
-          >
-            {plans.map((plan, i) => (
-              <PricingCard
-                key={`${tab}-${plan.id}`}
-                plan={plan}
-                index={i}
-                onSelect={handlePlanSelect}
-              />
-            ))}
-          </motion.div>
-        </AnimatePresence>
 
         <motion.p
           initial={{ opacity: 0 }}
@@ -797,10 +575,7 @@ export default function Pricing() {
           transition={{ delay: 0.4 }}
           style={{ textAlign: "center", marginTop: 40, fontSize: 13, color: "rgba(100,116,139,0.5)" }}
         >
-          {tab === "india"
-            ? "Secure payments via Razorpay (India). "
-            : "Secure payments via PayPal (International). "}
-          All plans include in-session processing.{" "}
+          Secure payments via Razorpay · UPI, cards, net banking & international cards accepted.{" "}
           <a href="mailto:contact@neuralopsai.in" style={{ color: "rgba(0,212,255,0.6)", textDecoration: "none" }}>
             Contact us
           </a>{" "}
@@ -817,8 +592,6 @@ export default function Pricing() {
             onClose={() => { if (!paying) setModal(MODAL_CLOSED); }}
             onEmailChange={(email) => setModal((m) => ({ ...m, email, error: "" }))}
             onContinue={handleModalContinue}
-            onPayPalSuccess={handlePayPalSuccess}
-            onPayPalError={handlePayPalError}
           />
         )}
       </AnimatePresence>

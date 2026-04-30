@@ -265,7 +265,6 @@ function ApprovalSimulationPanel({ sim }: { sim: ApprovalSimulation }) {
 // ─── Premium Gate ─────────────────────────────────────────────────────────────
 interface PaymentState {
   loading: boolean;
-  region: "india" | "international";
   email: string;
   error: string;
 }
@@ -279,7 +278,6 @@ function PremiumGate({
 }) {
   const [pay, setPay] = useState<PaymentState>({
     loading: false,
-    region: "international",
     email: "",
     error: "",
   });
@@ -293,7 +291,7 @@ function PremiumGate({
     "Profile strengths — attorney-level analysis",
   ];
 
-  async function handleRazorpay() {
+  async function handlePay() {
     if (!pay.email) return setPay((p) => ({ ...p, error: "Please enter your email." }));
     setPay((p) => ({ ...p, loading: true, error: "" }));
 
@@ -369,27 +367,6 @@ function PremiumGate({
     }
   }
 
-  async function handleStripe() {
-    if (!pay.email) return setPay((p) => ({ ...p, error: "Please enter your email." }));
-    setPay((p) => ({ ...p, loading: true, error: "" }));
-    try {
-      const res = await fetch("/api/payment/stripe/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: pay.email }),
-      });
-      if (!res.ok) throw new Error("Failed to create checkout.");
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch (err) {
-      setPay((p) => ({
-        ...p,
-        loading: false,
-        error: err instanceof Error ? err.message : "Payment failed. Please try again.",
-      }));
-    }
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -450,30 +427,6 @@ function PremiumGate({
             />
           </div>
 
-          {/* Region selector */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-              Your Region
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              {(["india", "international"] as const).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setPay((p) => ({ ...p, region: r }))}
-                  style={{
-                    flex: 1, padding: "10px", borderRadius: 8, cursor: "pointer",
-                    border: `1px solid ${pay.region === r ? "rgba(0,212,255,0.4)" : "rgba(255,255,255,0.1)"}`,
-                    background: pay.region === r ? "rgba(0,212,255,0.08)" : "transparent",
-                    color: pay.region === r ? "#00d4ff" : "#64748b",
-                    fontSize: 13, fontWeight: 600,
-                  }}
-                >
-                  {r === "india" ? "🇮🇳 India" : "🌍 International"}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Error */}
           {pay.error && (
             <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
@@ -482,36 +435,20 @@ function PremiumGate({
           )}
 
           {/* Pay button */}
-          {pay.region === "india" ? (
-            <button
-              onClick={handleRazorpay}
-              disabled={pay.loading}
-              style={{ width: "100%", padding: "14px 20px", borderRadius: 10, border: "none", background: pay.loading ? "rgba(0,102,255,0.4)" : "linear-gradient(135deg, #0055ee, #0099ff)", color: "#ffffff", fontSize: 15, fontWeight: 700, cursor: pay.loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
-            >
-              {pay.loading ? (
-                <><Spinner />Processing...</>
-              ) : (
-                <>Pay ₹3,000 with Razorpay</>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={handleStripe}
-              disabled={pay.loading}
-              style={{ width: "100%", padding: "14px 20px", borderRadius: 10, border: "none", background: pay.loading ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "#ffffff", fontSize: 15, fontWeight: 700, cursor: pay.loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
-            >
-              {pay.loading ? (
-                <><Spinner />Processing...</>
-              ) : (
-                <>Pay $150 with Stripe</>
-              )}
-            </button>
-          )}
+          <button
+            onClick={handlePay}
+            disabled={pay.loading}
+            style={{ width: "100%", padding: "14px 20px", borderRadius: 10, border: "none", background: pay.loading ? "rgba(0,102,255,0.4)" : "linear-gradient(135deg, #0055ee, #0099ff)", color: "#ffffff", fontSize: 15, fontWeight: 700, cursor: pay.loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+          >
+            {pay.loading ? (
+              <><Spinner />Processing...</>
+            ) : (
+              <>Pay Securely with Razorpay</>
+            )}
+          </button>
 
           <p style={{ textAlign: "center", fontSize: 11, color: "#334155", marginTop: 10 }}>
-            {pay.region === "india"
-              ? "Secured by Razorpay · All major UPI, cards & net banking accepted"
-              : "Secured by Stripe · All major credit & debit cards accepted"}
+            Secured by Razorpay · UPI, cards, net banking & international cards accepted
           </p>
         </div>
       </div>
