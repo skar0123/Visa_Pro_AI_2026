@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 export interface SessionPayload {
   email: string;
+  name?: string;
   isPaid: boolean;
   visaPreference?: string;
   createdAt: number;
@@ -16,10 +17,12 @@ function secret(): string {
 export function createSession(
   email: string,
   isPaid: boolean,
-  visaPreference?: string
+  visaPreference?: string,
+  name?: string
 ): string {
   const payload: SessionPayload = {
     email: email.toLowerCase().trim(),
+    name,
     isPaid,
     visaPreference,
     createdAt: Date.now(),

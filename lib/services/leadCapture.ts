@@ -10,7 +10,7 @@ export interface LeadData {
 }
 
 export interface PaymentEvent {
-  provider: "razorpay";
+  provider: "paypal" | "razorpay";
   email: string;
   amount: number;
   currency: string;

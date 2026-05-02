@@ -5,10 +5,12 @@ import { randomUUID } from "crypto";
 export interface User {
   id: string;
   email: string;
+  name?: string;
   plan: "free" | "premium";
   usage_count: number;
   created_at: string;
   upgraded_at?: string;
+  contacted?: boolean;
 }
 
 export const FREE_USAGE_LIMIT = 3;
@@ -19,7 +21,6 @@ const DATA_DIR =
 
 const USERS_FILE = join(DATA_DIR, "visapro_users.json");
 
-// Module-scoped in-memory cache
 let cache: Map<string, User> | null = null;
 
 function ensureDir(): void {
@@ -54,14 +55,22 @@ function persist(): void {
   } catch {}
 }
 
-export function getOrCreateUser(email: string): User {
+export function getOrCreateUser(email: string, name?: string): User {
   const key = email.toLowerCase().trim();
   const users = load();
-  if (users.has(key)) return users.get(key)!;
+  if (users.has(key)) {
+    const existing = users.get(key)!;
+    if (name && !existing.name) {
+      existing.name = name;
+      persist();
+    }
+    return existing;
+  }
 
   const user: User = {
     id: randomUUID(),
     email: key,
+    name,
     plan: "free",
     usage_count: 0,
     created_at: new Date().toISOString(),
@@ -94,6 +103,25 @@ export function incrementUsage(email: string): void {
   if (!user) return;
   user.usage_count += 1;
   persist();
+}
+
+export function deleteUser(email: string): boolean {
+  const key = email.toLowerCase().trim();
+  const users = load();
+  if (!users.has(key)) return false;
+  users.delete(key);
+  persist();
+  return true;
+}
+
+export function markContacted(email: string, contacted: boolean): User | null {
+  const key = email.toLowerCase().trim();
+  const users = load();
+  const user = users.get(key);
+  if (!user) return null;
+  user.contacted = contacted;
+  persist();
+  return user;
 }
 
 export function getAllUsers(): User[] {

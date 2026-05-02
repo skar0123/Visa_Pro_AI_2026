@@ -265,7 +265,6 @@ function ApprovalSimulationPanel({ sim }: { sim: ApprovalSimulation }) {
 // ─── Premium Gate ─────────────────────────────────────────────────────────────
 interface PaymentState {
   loading: boolean;
-  email: string;
   error: string;
 }
 
@@ -276,11 +275,7 @@ function PremiumGate({
   score: number;
   onUnlocked: () => void;
 }) {
-  const [pay, setPay] = useState<PaymentState>({
-    loading: false,
-    email: "",
-    error: "",
-  });
+  const [pay, setPay] = useState<PaymentState>({ loading: false, error: "" });
 
   const LOCKED_FEATURES = [
     "Hybrid ML + RAG analysis (Claude AI + knowledge base)",
@@ -292,72 +287,39 @@ function PremiumGate({
   ];
 
   async function handlePay() {
-    if (!pay.email) return setPay((p) => ({ ...p, error: "Please enter your email." }));
     setPay((p) => ({ ...p, loading: true, error: "" }));
 
+    // Get current session email
+    let email = "";
     try {
-      // Create Razorpay order
-      const orderRes = await fetch("/api/razorpay/create-order", {
+      const sessionRes = await fetch("/api/session");
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json();
+        if (!sessionData.valid) {
+          // Not logged in — redirect to login first
+          window.location.href = `/login?plan=pro&returnTo=${encodeURIComponent(window.location.pathname)}`;
+          return;
+        }
+        email = sessionData.email ?? "";
+      }
+    } catch {
+      // continue
+    }
+
+    try {
+      const res = await fetch("/api/paypal/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "full_report" }),
-      });
-      if (!orderRes.ok) throw new Error("Failed to create payment order.");
-      const { order_id, amount, currency } = await orderRes.json();
-
-      // Load Razorpay checkout.js dynamically
-      await new Promise<void>((resolve, reject) => {
-        if ((window as Window & { Razorpay?: unknown }).Razorpay) { resolve(); return; }
-        const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/checkout.js";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Failed to load Razorpay."));
-        document.head.appendChild(script);
+        body: JSON.stringify({ plan: "full_report", email }),
       });
 
-      const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-
-      await new Promise<void>((resolve, reject) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const RazorpayConstructor = (window as unknown as { Razorpay: new (opts: Record<string, unknown>) => { open: () => void } }).Razorpay;
-        const rzp = new RazorpayConstructor({
-          key: keyId,
-          amount,
-          currency,
-          name: "VisaPro AI",
-          description: "Full Analysis Report Unlock",
-          order_id,
-          prefill: { email: pay.email },
-          theme: { color: "#00d4ff" },
-          handler: async (response: {
-            razorpay_order_id: string;
-            razorpay_payment_id: string;
-            razorpay_signature: string;
-          }) => {
-            try {
-              const verifyRes = await fetch("/api/payment/razorpay/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...response, email: pay.email }),
-              });
-              if (!verifyRes.ok) throw new Error("Payment verification failed.");
-              // Server set an HTTP-only cookie in the verify response.
-              // Call onUnlocked to re-evaluate with that cookie (sent automatically).
-              onUnlocked();
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          },
-          modal: {
-            ondismiss: () => {
-              setPay((p) => ({ ...p, loading: false }));
-              resolve();
-            },
-          },
-        });
-        rzp.open();
-      });
+      if (!res.ok) throw new Error("Failed to create payment order.");
+      const { approvalUrl } = await res.json();
+      if (approvalUrl) {
+        window.location.href = approvalUrl;
+      } else {
+        throw new Error("Could not get PayPal payment URL.");
+      }
     } catch (err) {
       setPay((p) => ({
         ...p,
@@ -413,20 +375,6 @@ function PremiumGate({
 
         {/* Payment form */}
         <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", padding: "24px" }}>
-          {/* Email */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={pay.email}
-              onChange={(e) => setPay((p) => ({ ...p, email: e.target.value, error: "" }))}
-              placeholder="you@example.com"
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", backgroundColor: "#0d1017", color: "#ffffff", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-            />
-          </div>
-
           {/* Error */}
           {pay.error && (
             <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>

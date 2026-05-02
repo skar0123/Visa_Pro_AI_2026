@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createSession, getSessionFromRequest } from "@/lib/services/session";
 import { validateEmail } from "@/lib/services/leadCapture";
+import { getUserByEmail } from "@/lib/services/userStore";
 
 // POST /api/session — create a free session for an email
 export async function POST(request: NextRequest) {
@@ -22,15 +23,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/session — verify an existing session token
+// GET /api/session — verify session, return current plan from store
 export async function GET(request: NextRequest) {
   const session = getSessionFromRequest(request);
-  if (!session) {
-    return Response.json({ valid: false, isPaid: false });
-  }
+  if (!session) return Response.json({ valid: false });
+
+  const user = getUserByEmail(session.email);
   return Response.json({
     valid: true,
-    email: session.email,
-    isPaid: session.isPaid,
+    email:  session.email,
+    name:   session.name ?? user?.name ?? null,
+    plan:   user?.plan ?? "free",
+    isPaid: user?.plan === "premium",
   });
 }
