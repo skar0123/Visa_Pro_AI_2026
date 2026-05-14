@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
-import { getOrCreateUser } from "@/lib/services/userStore";
+import { getOrCreateUser } from "@/lib/db/users";
 import { createSession, buildSessionCookie } from "@/lib/services/session";
 
 function secret(): string {
@@ -90,40 +90,18 @@ export async function GET(req: NextRequest) {
 
   const { email, name } = googleUser;
 
-  // Create / update user in store
-  const user    = getOrCreateUser(email, name);
-  const isPaid  = user.plan === "premium";
+  // Create / update user in DB (async in v7 layer)
+  const user    = await getOrCreateUser(email, name);
+  const isPaid  = user.plan === "pro" || user.plan === "premium";
   const token   = createSession(email, isPaid, undefined, name);
 
   // Clear oauth_state cookie
   const clearStateCookie = "oauth_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax";
 
-  // If paid plan selected, create PayPal order and redirect to PayPal
-  if (plan === "pro" || plan === "premium") {
-    try {
-      const orderRes = await fetch(`${origin}/api/paypal/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, email }),
-      });
-
-      if (orderRes.ok) {
-        const { approvalUrl } = await orderRes.json();
-        if (approvalUrl) {
-          const res = NextResponse.redirect(approvalUrl);
-          // Set session first so capture knows the user
-          res.headers.append("Set-Cookie", buildSessionCookie(token));
-          res.headers.append("Set-Cookie", clearStateCookie);
-          return res;
-        }
-      }
-    } catch (err) {
-      console.error("[google-callback] paypal order:", err);
-    }
-    // PayPal failed — fall through to dashboard with session
-  }
-
-  const dest = returnTo.startsWith("/") ? `${origin}${returnTo}` : `${origin}/dashboard`;
+  // Redirect paid-plan users to pricing so they can complete checkout via Razorpay
+  const dest = (plan === "pro" || plan === "premium")
+    ? `${origin}/pricing?plan=${plan}`
+    : returnTo.startsWith("/") ? `${origin}${returnTo}` : `${origin}/dashboard`;
   const res  = NextResponse.redirect(dest);
   res.headers.append("Set-Cookie", buildSessionCookie(token));
   res.headers.append("Set-Cookie", clearStateCookie);

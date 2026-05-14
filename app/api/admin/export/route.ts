@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFromRequest } from "@/lib/admin-auth";
-import { getAllUsers } from "@/lib/services/userStore";
-import { getAdminStats } from "@/lib/services/leadCapture";
+import { getAllUsers } from "@/lib/db/users";
+import { getLeads } from "@/lib/db/leads";
+import { getPayments } from "@/lib/db/payments";
 
-function escapeCsv(val: string | number | boolean | undefined | null): string {
+function csv(val: string | number | boolean | null | undefined): string {
   if (val == null) return "";
-  const str = String(val);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
+  const s = String(val);
+  return s.includes(",") || s.includes('"') || s.includes("\n")
+    ? `"${s.replace(/"/g, '""')}"`
+    : s;
+}
+
+function fmt(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  try { return new Date(d).toLocaleString(); } catch { return String(d); }
 }
 
 export async function GET(req: NextRequest) {
@@ -17,63 +22,76 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const type = req.nextUrl.searchParams.get("type") ?? "users";
+  const sp     = req.nextUrl.searchParams;
+  const type   = sp.get("type")    ?? "users";
+  const search = sp.get("search")  ?? undefined;
+  const plan   = sp.get("plan")    ?? undefined;
+  const country = sp.get("country") ?? undefined;
+  const visa   = sp.get("visa")    ?? undefined;
 
-  let csv = "";
+  let rows: string[] = [];
 
   if (type === "payments") {
-    const { recentPayments } = getAdminStats();
-    csv = ["Provider,Email,Amount,Currency,Date"]
-      .concat(
-        recentPayments.map((p) =>
-          [
-            escapeCsv(p.provider),
-            escapeCsv(p.email),
-            escapeCsv(p.amount / 100),
-            escapeCsv(p.currency.toUpperCase()),
-            escapeCsv(new Date(p.timestamp).toLocaleString()),
-          ].join(",")
-        )
-      )
-      .join("\n");
+    const payments = await getPayments({ search, plan, limit: 5000 });
+    rows = [
+      "Provider,Order ID,Payment ID,Plan,Email,Amount (INR),Currency,Status,Date",
+      ...payments.map((p) =>
+        [
+          csv(p.provider),
+          csv(p.orderId),
+          csv(p.paymentId ?? ""),
+          csv(p.plan),
+          csv(p.email),
+          csv((p.amount / 100).toFixed(2)),
+          csv(p.currency),
+          csv(p.status),
+          csv(fmt(p.createdAt)),
+        ].join(",")
+      ),
+    ];
   } else if (type === "leads") {
-    const { recentLeads } = getAdminStats();
-    csv = ["Name,Email,Score,Visa Preference,Date"]
-      .concat(
-        recentLeads.map((l) =>
-          [
-            escapeCsv(l.name),
-            escapeCsv(l.email),
-            escapeCsv(l.score),
-            escapeCsv(l.visaPreference ?? ""),
-            escapeCsv(new Date(l.timestamp).toLocaleString()),
-          ].join(",")
-        )
-      )
-      .join("\n");
+    const leads = await getLeads({ search, country, visaCategory: visa, limit: 5000 });
+    rows = [
+      "Name,Email,Phone,Country,Visa Category,Score,Date",
+      ...leads.map((l) =>
+        [
+          csv(l.name),
+          csv(l.email),
+          csv(l.phone ?? ""),
+          csv(l.country ?? ""),
+          csv(l.visaCategory ?? ""),
+          csv(l.evaluationScore ?? ""),
+          csv(fmt(l.createdAt)),
+        ].join(",")
+      ),
+    ];
   } else {
-    const users = getAllUsers();
-    csv = ["ID,Email,Name,Plan,Usage,Contacted,Joined,Upgraded"]
-      .concat(
-        users.map((u) =>
-          [
-            escapeCsv(u.id),
-            escapeCsv(u.email),
-            escapeCsv(u.name ?? ""),
-            escapeCsv(u.plan),
-            escapeCsv(u.usage_count),
-            escapeCsv(u.contacted ? "Yes" : "No"),
-            escapeCsv(new Date(u.created_at).toLocaleString()),
-            escapeCsv(u.upgraded_at ? new Date(u.upgraded_at).toLocaleString() : ""),
-          ].join(",")
-        )
-      )
-      .join("\n");
+    const users = await getAllUsers({ search, plan, country });
+    rows = [
+      "ID,Email,Name,Phone,Country,Role,Plan,Usage,Contacted,Joined,Upgraded",
+      ...users.map((u) =>
+        [
+          csv(u.id),
+          csv(u.email),
+          csv(u.name ?? ""),
+          csv(u.phone ?? ""),
+          csv(u.country ?? ""),
+          csv(u.role),
+          csv(u.plan),
+          csv(u.usageCount),
+          csv(u.contacted ? "Yes" : "No"),
+          csv(fmt(u.createdAt)),
+          csv(u.upgradedAt ? fmt(u.upgradedAt) : ""),
+        ].join(",")
+      ),
+    ];
   }
 
-  return new NextResponse(csv, {
+  const content = rows.join("\n");
+
+  return new NextResponse(content, {
     headers: {
-      "Content-Type":        "text/csv",
+      "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="visapro_${type}_${Date.now()}.csv"`,
     },
   });

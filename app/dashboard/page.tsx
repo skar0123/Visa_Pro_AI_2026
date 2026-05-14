@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
@@ -18,6 +18,7 @@ const CHAR_LIMITS = { education: 1200, experience: 1200, skills: 800 };
 const HISTORY_KEY = "visapro_history";
 
 function saveToHistory(result: Record<string, unknown>, name: string) {
+  if (typeof window === "undefined") return;
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     const existing = raw ? JSON.parse(raw) : [];
@@ -37,6 +38,9 @@ function saveToHistory(result: Record<string, unknown>, name: string) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const [form, setForm] = useState<FormData>({
     name: "", email: "", linkedin: "",
     education: "", experience: "", skills: "",
@@ -111,7 +115,9 @@ export default function DashboardPage() {
         skills: form.skills + (form.linkedin ? `\nLinkedIn: ${form.linkedin}` : ""),
       };
 
-      localStorage.setItem("visapro_profile_inputs", JSON.stringify(profileInputs));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("visapro_profile_inputs", JSON.stringify(profileInputs));
+      }
 
       // Session cookie (if paid) is sent automatically by the browser — no manual auth header needed.
       const res = await fetch("/api/evaluate", {
@@ -125,7 +131,9 @@ export default function DashboardPage() {
       }
       const result = await res.json();
       const stored = { ...result, applicantName: form.name || "Applicant" };
-      sessionStorage.setItem("visapro_result", JSON.stringify(stored));
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("visapro_result", JSON.stringify(stored));
+      }
       saveToHistory(result, form.name);
       router.push("/results");
     } catch (err: unknown) {
@@ -172,6 +180,8 @@ export default function DashboardPage() {
       hint: "List programming languages, frameworks, cloud platforms, certifications, publications, and awards.",
     },
   ];
+
+  if (!mounted) return null;
 
   const filledCount = [form.education, form.experience, form.skills].filter((v) => v.trim().length > 0).length;
   const inputBase: React.CSSProperties = {

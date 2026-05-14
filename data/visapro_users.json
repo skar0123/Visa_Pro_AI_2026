@@ -1,0 +1,18 @@
+[
+  {
+    "id": "7e601441-07f1-4112-9ef6-f2a9b42f28fd",
+    "email": "rahamanafridi@gmail.com",
+    "name": "Afridi Rahaman",
+    "plan": "free",
+    "usage_count": 0,
+    "created_at": "2026-05-12T11:03:56.770Z"
+  },
+  {
+    "id": "33aaa160-c9b3-4ea0-b8b6-ba4ea5dffb46",
+    "email": "fiziks.afridi@gmail.com",
+    "name": "Afridi Rahaman",
+    "plan": "free",
+    "usage_count": 0,
+    "created_at": "2026-05-12T11:19:38.140Z"
+  }
+]

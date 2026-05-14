@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createSession, getSessionFromRequest } from "@/lib/services/session";
-import { validateEmail } from "@/lib/services/leadCapture";
-import { getUserByEmail } from "@/lib/services/userStore";
+import { validateEmail } from "@/lib/db/leads";
+import { getUserByEmail } from "@/lib/db/users";
 
 // POST /api/session — create a free session for an email
 export async function POST(request: NextRequest) {
@@ -23,17 +23,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/session — verify session, return current plan from store
+// GET /api/session — verify session, return current plan from DB
 export async function GET(request: NextRequest) {
   const session = getSessionFromRequest(request);
   if (!session) return Response.json({ valid: false });
 
-  const user = getUserByEmail(session.email);
+  const user   = await getUserByEmail(session.email);
+  const plan   = user?.plan ?? "free";
+  const isPaid = plan === "pro" || plan === "premium";
+
   return Response.json({
-    valid: true,
+    valid:  true,
     email:  session.email,
     name:   session.name ?? user?.name ?? null,
-    plan:   user?.plan ?? "free",
-    isPaid: user?.plan === "premium",
+    plan,
+    isPaid,
   });
 }

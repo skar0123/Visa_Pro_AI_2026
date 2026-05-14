@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { initiatePayment } from "@/lib/razorpay";
 
 interface PlanFeature { text: string; included: boolean }
 interface Plan {
@@ -39,7 +40,7 @@ const PLANS: Plan[] = [
     id: "pro", name: "Pro", priceUSD: 99, period: "per month",
     description: "Full AI-powered analysis built for serious visa applicants.",
     accentColor: "#00d4ff", glowColor: "rgba(0,212,255,0.15)",
-    popular: true, cta: "Upgrade to Pro",
+    popular: true, cta: "Pay Securely",
     features: [
       { text: "Full AI visa evaluation",                       included: true },
       { text: "Overall readiness score",                       included: true },
@@ -56,7 +57,7 @@ const PLANS: Plan[] = [
     id: "premium", name: "Prime", priceUSD: 199, period: "per month",
     description: "The complete toolkit for professionals pursuing extraordinary ability visas.",
     accentColor: "#a78bfa", glowColor: "rgba(139,92,246,0.15)",
-    popular: false, cta: "Get Prime",
+    popular: false, cta: "Pay Securely",
     features: [
       { text: "Everything in Pro",                   included: true },
       { text: "Advanced 12-month strategy plan",     included: true },
@@ -200,12 +201,13 @@ function PricingCard({ plan, index, onSelect, loading }: {
 }
 
 export default function Pricing() {
+  const [mounted, setMounted] = useState(false);
   const [session, setSession] = useState<{ valid: boolean; email?: string; plan?: string } | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "error" | "info" } | null>(null);
 
-  // Check current auth state
   useEffect(() => {
+    setMounted(true);
     fetch("/api/session")
       .then((r) => r.json())
       .then((data) => setSession(data))
@@ -220,44 +222,31 @@ export default function Pricing() {
   async function handlePlanSelect(plan: Plan) {
     setLoadingPlan(plan.id);
 
-    // Not logged in → go to login page with plan intent
     if (!session?.valid) {
       window.location.href = `/login?plan=${plan.id}&returnTo=${encodeURIComponent("/pricing")}`;
       return;
     }
 
-    // Free plan: if already logged in, go to dashboard
     if (plan.id === "free") {
       window.location.href = "/dashboard";
       return;
     }
 
-    // Paid plan: already logged in → create PayPal order and redirect
-    try {
-      const res = await fetch("/api/paypal/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: plan.id, email: session.email }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        showToast(err.error ?? "Failed to create order.", "error");
+    await initiatePayment({
+      plan: plan.id as "pro" | "premium",
+      email: session.email,
+      onSuccess: () => {
+        showToast("Payment successful! Redirecting…", "info");
+        setTimeout(() => { window.location.href = "/dashboard"; }, 1500);
+      },
+      onError: (msg) => {
+        showToast(msg, "error");
         setLoadingPlan(null);
-        return;
-      }
-
-      const { approvalUrl } = await res.json();
-      if (approvalUrl) {
-        window.location.href = approvalUrl;
-      } else {
-        showToast("Could not get PayPal payment URL.", "error");
+      },
+      onDismiss: () => {
         setLoadingPlan(null);
-      }
-    } catch {
-      showToast("Network error. Please try again.", "error");
-      setLoadingPlan(null);
-    }
+      },
+    });
   }
 
   return (
@@ -287,7 +276,7 @@ export default function Pricing() {
           </p>
 
           {/* Auth status badge */}
-          {session?.valid && (
+          {mounted && session?.valid && (
             <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", fontSize: 12, fontWeight: 600 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
               Signed in as {session.email}{session.plan === "premium" ? " · Premium" : ""}
@@ -310,7 +299,7 @@ export default function Pricing() {
           viewport={{ once: true }} transition={{ delay: 0.4 }}
           style={{ textAlign: "center", marginTop: 40, fontSize: 13, color: "rgba(100,116,139,0.5)" }}
         >
-          Secure payments via PayPal · All major cards accepted.{" "}
+          Secure payments via Razorpay · Cards · UPI · Netbanking · Wallets.{" "}
           <a href="mailto:contact@neuralopsai.in" style={{ color: "rgba(0,212,255,0.6)", textDecoration: "none" }}>Contact us</a>{" "}
           for enterprise pricing.
         </motion.p>

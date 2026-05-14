@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrCreateUser } from "@/lib/services/userStore";
+import { getOrCreateUser } from "@/lib/db/users";
 import { createSession, buildSessionCookie } from "@/lib/services/session";
-import { validateEmail } from "@/lib/services/leadCapture";
+import { validateEmail } from "@/lib/db/leads";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,13 +12,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
 
-    const user = getOrCreateUser(email);
-    const token = createSession(email, user.plan === "premium");
+    const user  = await getOrCreateUser(email);
+    const isPaid = user.plan === "pro" || user.plan === "premium";
+    const token = createSession(email, isPaid);
 
     const res = NextResponse.json({
       success: true,
-      plan: user.plan,
-      usage_count: user.usage_count,
+      plan:        user.plan,
+      usage_count: user.usageCount,
     });
     res.headers.set("Set-Cookie", buildSessionCookie(token));
     return res;

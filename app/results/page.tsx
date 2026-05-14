@@ -8,6 +8,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import type { EvaluationResult, RoadmapItem, RFEPrediction, ApprovalSimulation } from "@/lib/ai";
 import Navbar from "@/components/Navbar";
+import { initiatePayment } from "@/lib/razorpay";
 
 interface HybridAnalysis {
   final_score: number;
@@ -289,44 +290,36 @@ function PremiumGate({
   async function handlePay() {
     setPay((p) => ({ ...p, loading: true, error: "" }));
 
-    // Get current session email
     let email = "";
     try {
       const sessionRes = await fetch("/api/session");
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
         if (!sessionData.valid) {
-          // Not logged in — redirect to login first
-          window.location.href = `/login?plan=pro&returnTo=${encodeURIComponent(window.location.pathname)}`;
+          const currentPath = typeof window !== "undefined" ? window.location.pathname : "/results";
+          window.location.href = `/login?plan=pro&returnTo=${encodeURIComponent(currentPath)}`;
           return;
         }
         email = sessionData.email ?? "";
       }
     } catch {
-      // continue
+      // continue without email pre-fill
     }
 
-    try {
-      const res = await fetch("/api/paypal/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "full_report", email }),
-      });
-
-      if (!res.ok) throw new Error("Failed to create payment order.");
-      const { approvalUrl } = await res.json();
-      if (approvalUrl) {
-        window.location.href = approvalUrl;
-      } else {
-        throw new Error("Could not get PayPal payment URL.");
-      }
-    } catch (err) {
-      setPay((p) => ({
-        ...p,
-        loading: false,
-        error: err instanceof Error ? err.message : "Payment failed. Please try again.",
-      }));
-    }
+    await initiatePayment({
+      plan:  "full_report",
+      email,
+      onSuccess: () => {
+        setPay((p) => ({ ...p, loading: false }));
+        onUnlocked();
+      },
+      onError: (msg) => {
+        setPay((p) => ({ ...p, loading: false, error: msg }));
+      },
+      onDismiss: () => {
+        setPay((p) => ({ ...p, loading: false }));
+      },
+    });
   }
 
   return (
@@ -391,12 +384,12 @@ function PremiumGate({
             {pay.loading ? (
               <><Spinner />Processing...</>
             ) : (
-              <>Pay Securely with Razorpay</>
+              <>Pay Securely</>
             )}
           </button>
 
           <p style={{ textAlign: "center", fontSize: 11, color: "#334155", marginTop: 10 }}>
-            Secured by Razorpay · UPI, cards, net banking & international cards accepted
+            Secured by Razorpay · Cards · UPI · Netbanking · Wallets
           </p>
         </div>
       </div>

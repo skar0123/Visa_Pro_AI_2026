@@ -50,3 +50,28 @@ export function buildAdminCookie(token: string): string {
 export function clearAdminCookie(): string {
   return "visapro_admin=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict";
 }
+
+// Short-lived token (5 min) issued after Google verifies identity, before password step.
+export function buildIntermediateToken(email: string): string {
+  const exp = Date.now() + 5 * 60 * 1000;
+  const data = Buffer.from(JSON.stringify({ email, exp, type: "admin_pre_auth" })).toString("base64url");
+  const sig = createHmac("sha256", secret()).update(data).digest("base64url");
+  return `${data}.${sig}`;
+}
+
+export function verifyIntermediateToken(token: string): { email: string } | null {
+  try {
+    const dot = token.lastIndexOf(".");
+    if (dot < 1) return null;
+    const data = token.slice(0, dot);
+    const sig = token.slice(dot + 1);
+    const expected = createHmac("sha256", secret()).update(data).digest("base64url");
+    if (sig !== expected) return null;
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString());
+    if (payload.type !== "admin_pre_auth") return null;
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return { email: payload.email };
+  } catch {
+    return null;
+  }
+}

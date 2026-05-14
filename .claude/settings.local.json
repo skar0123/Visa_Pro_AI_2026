@@ -19,7 +19,10 @@
       "Bash(python3 *)",
       "Bash(grep *)",
       "Bash(git *)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && grep -i paypal {} 2>/dev/null || echo \"No PayPal refs\"')",
+      "Bash(npx prisma *)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma *)"
     ]
   }
 }

@@ -1,0 +1,66 @@
+// Local dev: SQLite (DATABASE_URL="file:./dev.db")
+// Vercel prod: PostgreSQL — change provider to "postgresql" and update DATABASE_URL
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  name       String?
+  phone      String?
+  country    String?
+  role       String    @default("user")
+  plan       String    @default("free")
+  usageCount Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  upgradedAt DateTime?
+  contacted  Boolean   @default(false)
+
+  leads    Lead[]
+  payments Payment[]
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  country         String?
+  visaCategory    String?
+  evaluationScore Int?
+  evaluationData  String?
+  createdAt       DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  email     String
+  provider  String   @default("razorpay")
+  orderId   String   @unique
+  paymentId String?
+  signature String?
+  plan      String
+  amount    Int
+  currency  String   @default("INR")
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@index([email])
+  @@index([createdAt])
+}
